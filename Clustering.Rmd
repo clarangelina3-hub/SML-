@@ -1,0 +1,245 @@
+---
+title: "Perbandingan Metode Clustering Berdasarkan Validasi Cluster"
+subtitle: "Sistem Machine Learning"
+author: "Clara Angelina (3338240011)"
+date: "2026-06-02"
+output:
+  rmdformats::readthedown:
+    highlight: tango
+    code_folding: show
+    df_print: paged
+    fig_width: 10
+    fig_height: 6
+    number_sections: true
+    
+  word_document: default
+     
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+<style>
+body {
+  text-align: justify;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  comment = ""
+)
+```
+
+# Deskripsi Dataset
+
+## Sumber dan Konteks Data
+
+Dataset *Wine Quality* tersedia secara publik di UCI Machine Learning Repository, dikembangkan oleh *A. Cerdeira, F. Almeida, T. Matos, dan J. Reis (2009)* dan dapat diakses di: <https://archive.ics.uci.edu/dataset/186/wine+qualitys>.
+Dataset ini berisi informasi mengenai kualitas wine merah (red wine) dan wine putih (white wine) yang diproduksi di wilayah *Vinho Verde, Portugal*.
+
+Setiap baris dalam dataset merepresentasikan satu sampel wine, sedangkan setiap kolom berisi karakteristik fisikokimia yang digunakan untuk menilai kualitas wine tersebut. 
+Dataset ini memiliki 11 variabel prediktor, yaitu `fixed acidity`,`volatile acidiy`,`citric acid`,`residual sugar`, `chlorides`, `free sulfur dioxide`,`total sulfur dioxide`, `density`,`pH`, `sulphates`, dan `alcohol`, serta 1 variabel target, yaitu `quality`, yang menunjukkan skor kualitas wine menurut penilaian sensorik para ahli. 
+Dataset ini banyak digunakan dalam penelitian dan pembelajaran machine learning untuk analisis data, klasifikasi, regresi, serta clustering.
+
+## Tujuan Analisis
+
+Tugas clustering ini memiliki tujuan analisis sebagai berikut: 1. Memahami karakteristik data wine melalui eksplorasi data dan analisis statistik deskriptif. 2. Melakukan preprocessing data, berupa standardisasi (scalling), untuk memastikan seluruh variabel memiliki skala yang sebanding dalam proses clustering. 3. Mengelompokkan sampel wine berdasarkan kemiripan karakteristik fisikokimianya menggunakan metode **K-Means Clustering** dan **Hierarchical Clustering.* 4. Mengevaluasi kualitas cluster yang terbentuk menggunakan metode validasi cluster yang sesuai. 5. Membandingkan hasil pengelompokan dari metode K-Means dan Hierarchical Clustering untuk menentukan metode yang memberikan performa terbaik. 5. Mengevaluasi kualitas cluster menggunakan metode validasi cluster yang sesuai, seperti Silhouette Coefficient, Davies-Bouldin Index, atau indeks validasi lainnya. 6. Menginterpretasikan karakteristik setiap cluster yang terbentuk sehingga diperoleh pemahaman mengenai pola alami dan segmentasi sampel wine berdasarkan sifat kimianya. 
+
+# Input dan Eksplorasi Data Awal
+
+```{r}
+library(readxl)
+library(cluster)
+library(factoextra)
+wine <- read_excel("~/Documents/SML_T4/Dataset_Soal2.xlsx")
+cat("Dimensi dataset:", nrow(wine), "baris x", ncol(wine), "kolom\n")
+
+str(wine)
+sum(is.na(wine))
+```
+
+# Prepocessing Data (Scalling)
+
+```{r}
+wine_features <- wine[, 1:11]         # hapus variabel quality
+wine_scaled <- scale(wine_features)   # scalling data
+
+summary(wine)                         # sebelum scalling
+summary(wine_scaled)                  # setelah scalling
+```
+
+# Metode Clustering 
+
+## K-Means Clustering
+
+```{r}
+## Penentuan Jumlah Cluster (k) Optimal 
+# Elbow Method 
+fviz_nbclust(wine_scaled, kmeans, method = "wss") + 
+  labs(title    = "Elbow Method - Red Wine Quality",
+       subtitle = "Menentukan jumlah cluster optimal (k)",
+       x        = "Jumlah Cluster (k)",
+       y        = "Total Within Sum of Squares")
+
+# Silhouette Method 
+fviz_nbclust(wine_scaled, kmeans, method = "silhouette") + 
+  labs(title    = "Silhouette Score - Red Wine Quality",
+       subtitle = "Nilai tertinggi = jumlah cluster optimal",
+       x        = "Jumlah Cluster (k)",
+       y        = "Average Silhouette Width")
+```
+
+Penentuan jumlah cluster optimal dilakukan dengan menggunakan Elbow Method dan Silhouette Method. Elbow Method dipakai untuk menentukan jumlah cluster yang paling tepat berdasarkan nilai Within Cluster Sum of Squares (WSS). Dari grafik Elbow Method, terlihat bahwa nilai WSS mengalami penurunan yang cukup tajam dari k = 1 ke k = 2, lalu penurunannya mulai melambat saat melihat jumlah cluster yang lebih banyak. Titik paling ideal terlihat di sekitar k = 2, jadi jumlah cluster yang layak digunakan adalah 2 cluster.
+
+Kemudian, dilakukan evaluasi menggunakan Silhouette Method. Dari grafik Silhoutte Method, nilai Average Silhouette Width tertinggi ditemukan pada k = 2. Nilai ini lebih tinggi dibandingkan dengan jumlah cluster lainnya, yang menandakan bahwa pembentukan dua cluster menghasilkan hasil kekompakan dan pemisahan antar cluster yang paling baik.
+
+Dari hasil Elbow Method dan Silhouette Method, jumlah cluster yang dipilih untuk analisis selanjutnya adalah 2 cluster. Pemilihan ini didasarkan pada kesamaan hasil dari kedua metode yang menunjukkan bahwa k = 2 adalah jumlah cluster yang paling optimal untuk dataset Wine Quality. 
+
+```{r}
+# Menjalankan K-Means 
+set.seed(123)
+
+km_wine <- kmeans(wine_scaled, centers = 2, nstart = 25) 
+km_wine
+
+km_clust <- km_wine$cluster
+table(km_clust)              
+
+fviz_cluster(km_wine, data = wine_scaled, geom = "point")
+```
+
+Hasil clustering menunjukkan bahwa dari total 1.599 data yang diperiksa, Cluster 1 terdiri dari 590 data dan Cluster 2 terdiri dari 1.009 data. Visualisasi menggunakan PCA menjadi 2 dimensi, dimana sumbu Dim1 menunjukkan 28,2% variasi, dan Dim2 menunjukkan 17,5% variasi, jadi jika kita jumlahkan kedua dimensi itu, mereka mewakili sekitar 45,7% informasi dari data yang asli.
+
+Dari cluster plot yang dibuat, terlihat bahwa Cluster 1 (merah) lebih banyak berada di sisi kanan dengan nilai Dim1 positif, sementara Cluster 2 (wbiru) lebih banyak ada di sisi kiri dengan nilai Dim1 negatif. Kedua cluster ini menunjukkan pemisahan yang jelas, meskipun ada sedikit area di tengah yang bercampur, yang normal karena kedua dimensi hanya menggambarkan sebagian dari total variasi data. Secara keseluruhan, gambar ini menunjukkan bahwa K-Means berhasil membagi 2 kelompok wine yang memiliki ciri yang berbeda satu sama lain.
+
+## Hierarchial Clustering
+
+```{r}
+## Matriks Jarak
+set.seed(123)
+dist_wine <- dist(wine_scaled, method = "euclidean")
+
+## Pemilihan Linkage Terbaik (Agglomerative Coefficient) --
+linkage_methods        <- c("average", "single", "complete", "ward")
+names(linkage_methods) <- c("Average", "Single", "Complete", "Ward")
+ 
+ac_values <- sapply(linkage_methods, function(m) round(agnes(wine_scaled, method = m)$ac, 4))
+ 
+data.frame(Linkage                   = names(ac_values),
+           Agglomerative_Coefficient = ac_values,
+           row.names                 = NULL)
+```
+
+Untuk membuat model Hierarchical Clustering, gunakan cara *Euclidean Distance* untuk mengukur jarak antara data yang berbeda. Setelah itu, tentukan metode linkage terbaik berdasarkan nilai *Agglomerative Coefficient (AC)*. Nilai AC yang mendekati 1 menandakan bahwa struktur cluster lebih kuat. Dari empat cara linkage yang diuji, cara **Ward memberikan nilai AC tertinggi** yaitu 0.9881, jadi cara ini dipilih sebagai yang terbaik untuk analisis Hierarchical Clustering berikutnya.
+
+```{r}
+# => Linkage dengan AC tertinggi dipilih (Ward)
+ 
+## Pemodelan menggunakan Ward's Linkage
+hc_ward <- hclust(dist_wine, method = "ward.D2")
+
+plot(
+  hc_ward, labels = FALSE, hang = -1,
+  main = "Dendrogram Hierarchical Clustering"
+)
+
+rect.hclust(
+  hc_ward,
+  k = 2,
+  border = "green"
+)
+
+cl_ward     <- cutree(hc_ward, k = 2)
+cl_ward 
+
+table(cl_ward)
+
+fviz_cluster(
+  list(
+    data = wine_scaled,
+    cluster = cl_ward
+  ),
+  geom = "point",
+  ellipse.type = "convex",
+  main = "Cluster Hierarchical"
+)
+
+```
+
+Model Hierarchical Clustering  dibuat menggunakan metode Ward's Linkage, yang menghasilkan dendrogram yang terbagi menjadi 2 cluster utama yang dipisahkan pada height sekitar 65-70. . Ini menunjukkan bahwa kedua cluster tersebut mempunyai karakteristik yang sangat berbeda. Hasil pemotongan dendrogram menggunakan `cutree()` dengan k = 2 menghasilkan Cluster 1 yang terdiri dari 1.114 data dan Cluster 2 yang terdiri dari 485 data dari total 1.599 observasi.
+
+Visualisasi dengan PCA menunjukkan bahwa Cluster 1 (merah) mendominasi di sisi kiri dengan penyebaran yang lebih luas, sementara Cluster 2 (biru) berada di sisi kanan dengan penyebaran yang lebih rapat, dengan sedikit tumpang tindih di area tengah pada Dim1 (28.2%) dan Dim2 (17.5%).
+
+# Validasi (evaluasi) Cluster
+
+```{r}
+sil_kmeans   <- silhouette(km_clust, dist_wine)
+sil_ward     <- silhouette(cl_ward, dist_wine)
+
+avg_sil_kmeans   <- mean(sil_kmeans[, 3])
+avg_sil_ward     <- mean(sil_ward[, 3])
+
+fviz_silhouette(sil_kmeans)
+```
+
+Validasi model K-Means menggunakan Silhouette menghasilkan rata-rata Silhouette Score yang didapat adalah 0.21, di mana Cluster 1 mendapatkan nilai 0.12 dan Cluster 2 mendapatkan nilai 0.27. Cluster 2 menunjukkan pemisahan yang lebih baik daripada Cluster 1, namun kedua nilai tersebut masih dianggap rendah karena berada di bawah 0.5.
+
+```{r}
+fviz_silhouette(sil_ward)
+```
+
+Sementara itu, model Hierarchical Clustering dengan menggunakan Silhouette, diperoleh rata-rata sebesar 0.18, di mana Cluster 1 mendapat nilai 0.19 dan Cluster 2 mendapat nilai 0.16. Kedua cluster memiliki nilai yang cukup mirip tetapi keduanya tetap walaupun rendah, ini menunjukkan bahwa ada tumpang tindih antara cluster di dataset wine in
+
+**Kesimpulan** 
+
+Dari perbandingan kedua metode, K-Means menunjukkan nilai Silhouette Score yang lebih tinggi (0.21 lebih besar dari 0.18), yang artinya K-Means membentuk kelompok yang lebih padat dan terpisah dengan baik dibandingkan Hierarchical Clustering. Meski begitu, kedua nilai ini masih dianggap rendah karena berada di bawah 0.5, yang menunjukkan bahwa ada tumpang tindih antara kelompok dalam dataset wine ini.
+
+# Membandingkan Hasil Kedua Metode
+
+```{r}
+hasil_validasi <- data.frame(
+  Metode               = c("K-Means Clustering", "HC - Ward's Linkage"),
+  Avg_Silhouette_Score = round(c(avg_sil_kmeans, avg_sil_ward), 4),
+  Keterangan           = ifelse(c(avg_sil_kmeans, avg_sil_ward) == max(avg_sil_kmeans, avg_sil_ward),
+                                "TERBAIK", "-")
+)
+ 
+print(hasil_validasi)
+```
+
+Berdasarkan perbandingan antara kedua model, K-Means Clustering dipilih sebagai model yang paling baik karena memiliki nilai Average Silhouette Score tertinggi yaitu 0.2137, sementara Hierarchical Clustering Ward's Linkage hanya mendapatkan nilai 0.1834. Ini berarti K-Means menciptakan kelompok yang lebih teratur dan terpisah dengan baik dalam dataset wine ini.
+
+# Karakteristik Tiap Cluster
+
+## K-Means Clustering
+```{r}
+wine$Cluster <- km_wine$cluster
+
+aggregate(. ~ Cluster,
+          data = wine,
+          FUN = mean)
+```
+
+Cluster 1 (590 data) adalah kelompok wine yang memiliki fixed acidity yang lebih tinggi (9,92), citric acid yang lebih tinggi (0,46), sulphates yang lebih tinggi (0,75), serta densitas yang lebih tinggi (0,9977). Selain itu, cluster ini memiliki volatile acidity yang lebih rendah (0,41) dan nilai pH yang lebih rendah (3,20). Rata-rata kualitas wine dari cluster ini sebesar 5,89, yang lebih tinggi dibandingkan cluster lainnya. Karakteristik ini menunjukkan bahwa Cluster 1 biasanya berisi anggur yang memiliki keasaman lebih tinggi dan kualitas yang lebih baik.
+
+
+Cluster 2 (1.009 data) adalah kelompok wine yang mempunyai volatile acidity yang tinggi (0.59), free sulfur dioxide yang tinggi (17.32), total sulfur dioxide yang tinggi (50.61), dan pH yang tinggi (3.38). Namun, cluster ini memiliki fixed acidity yang rendah (7.38) dan citric acid yang rendah (0.16). Rata-rata kualitas wine dari cluster ini lebih rendah (5.48) jika dibandingkan dengan Cluster 1.
+
+## Hierarchial Clustering
+
+```{r}
+wine$Cluster_HC <- cl_ward
+
+aggregate(. ~ Cluster_HC,
+          data = wine,
+          mean)
+```
+
+Cluster 1 (1.114 data) adalah kelompok wine yang memiliki sifat dengan volatile acidity tinggi (0.59), free sulfur dioxide tinggi (18.39), total sulfur dioxide tinggi (54.65), dan pH yang juga tinggi (3.35). Namun, kelompok ini memiliki fixed acidity yang rendah (7.73) dan citric acid yang rendah (0.19). Rata-rata kualitas wine dalam kelompok ini lebih rendah (5.45) jika dibandingkan dengan Cluster 2.
+
+Cluster 2 (485 data) adalah kelompok anggur dengan sifat yang menunjukkan fixed acidity tinggi (9.67), citric acid tinggi (0.46), sulphates tinggi (0.74), dan kadar alkohol tinggi (10.88). Meskipun begitu, kelompok ini memiliki volatile acidity yang rendah (0.39) dan total sulfur dioxide yang rendah (27.68). Rata-rata kualitas wine di kelompok ini lebih tinggi (6.07) dibandingkan dengan Cluster 1.
